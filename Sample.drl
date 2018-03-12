@@ -1,0 +1,177 @@
+package com.sample
+ 
+import com.sample.DroolsTest.Message;
+import com.sample.Kategoria;
+import com.sample.KategoriaSamochodu;
+import com.sample.Klient;
+import com.sample.Rezerwacja;
+import com.sample.Zwrot;
+import com.sample.Samochod;
+import com.sample.Kara;
+import java.util.Date;
+import java.util.GregorianCalendar;
+ 
+
+rule "Domyslna kategoria"
+	when
+		r: Rezerwacja( preferowanaKategoria == null)
+		kA: KategoriaSamochodu(symbol == Kategoria.A)
+	then
+		r.preferowanaKategoria = kA;
+		update(r);
+		System.out.println("Zmieniam kategorie na A dla rezerwacji...");
+end
+
+
+rule "Przydziel samochod z tej samej kategorii"
+	when
+		r: Rezerwacja(czyWykonalna == false, samochod == null)
+		s: Samochod(kategoria == r.preferowanaKategoria)
+		not Rezerwacja(this != r, samochod == s,
+					this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu)) //dla samochodu: nie moze byc juz zarezerwowany w tym terminie
+		not Rezerwacja(this != r, czyWykonalna == true, klient == r.klient,
+					this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu)) //dla klienta: nie moze miec na raz 2 rezerwacji
+	then
+		// jest mozliwe przydzielenie samochodu
+		r.samochod = s;
+		r.czyWykonalna = true;
+		System.out.println("Rezerwacja mozliwa " + r.preferowanaKategoria.symbol + " " + s.kategoria.symbol);
+		System.out.println(r.dataPobrania + " " + r.dataZwrotu + "\n");
+		update(r);
+end
+
+rule "Chcê A, nie ma A, przydziel B"
+	when
+		r: Rezerwacja(czyWykonalna == false, this.samochod == null, preferowanaKategoria != null, preferowanaKategoria.symbol == Kategoria.A)
+		forall (r1: Rezerwacja(this != r, samochod != null, samochod.kategoria == r.preferowanaKategoria)
+					Rezerwacja(this == r1, this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu))) //nie ma aut z tej samej kategorii (nie ma z A)
+					
+		s: Samochod(kategoria.symbol == Kategoria.B) //jest samochod z B
+		not Rezerwacja(this != r, samochod == s,
+					this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu)) //dla samochodu: nie moze byc juz zarezerwowany w tym terminie
+		not Rezerwacja(this != r, czyWykonalna == true, klient == r.klient,
+					this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu)) //dla klienta: nie moze miec na raz 2 rezerwacji
+					
+		
+	then
+		// jest mozliwe przydzielenie samochodu
+		r.samochod = s;
+		r.czyWykonalna = true;
+		System.out.println("Rezerwacja mozliwa- przydzielam B zamiast A");
+		System.out.println(r.dataPobrania + " " + r.dataZwrotu + "\n");
+		update(r);
+end
+
+rule "Chcê A, nie ma A ani B, przydziel D"
+	when
+		r: Rezerwacja(czyWykonalna == false, samochod == null, preferowanaKategoria != null, preferowanaKategoria.symbol == Kategoria.A) // chce A
+		forall (r1: Rezerwacja(this != r, samochod != null, samochod.kategoria.symbol == Kategoria.A)
+					Rezerwacja(this == r1, this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu))) //wszystkie A zajete
+		forall (r2: Rezerwacja(this != r, samochod != null, samochod.kategoria.symbol == Kategoria.B)
+					Rezerwacja(this == r2, this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu))) //wszystkie B zajete
+		s: Samochod(kategoria.symbol == Kategoria.D) //jest samochod z D
+		not Rezerwacja(this != r, samochod == s,
+					this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu)) //dla samochodu: nie moze byc juz zarezerwowany w tym terminie
+		not Rezerwacja(this != r, czyWykonalna == true, klient == r.klient,
+					this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu)) //dla klienta: nie moze miec na raz 2 rezerwacji
+					
+	then
+		// jest mozliwe przydzielenie samochodu
+		r.samochod = s;
+		r.czyWykonalna = true;
+		System.out.println("Rezerwacja mozliwa- przydzielam D zamiast czegos innego");
+		System.out.println(r.dataPobrania + " " + r.dataZwrotu + "\n");
+		update(r);
+end
+
+rule "Chcê B, nie ma B, przydziel D"
+	when
+		r: Rezerwacja(czyWykonalna == false, samochod == null, preferowanaKategoria != null, preferowanaKategoria.symbol == Kategoria.B) // chce B
+		forall (r2: Rezerwacja(this != r, samochod != null, samochod.kategoria.symbol == Kategoria.B)
+					Rezerwacja(this == r2, this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu))) //wszystkie B zajete
+		s: Samochod(kategoria.symbol == Kategoria.D) //jest samochod z D
+		not Rezerwacja(this != r, samochod == s,
+					this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu)) //dla samochodu: nie moze byc juz zarezerwowany w tym terminie
+		not Rezerwacja(this != r, czyWykonalna == true, klient == r.klient,
+					this.czyKolidujePrzedzial(r.dataPobrania, r.dataZwrotu)) //dla klienta: nie moze miec na raz 2 rezerwacji
+					
+	then
+		// jest mozliwe przydzielenie samochodu
+		r.samochod = s;
+		r.czyWykonalna = true;
+		System.out.println("Rezerwacja mozliwa- przydzielam D zamiast czegos innego");
+		System.out.println(r.dataPobrania + " " + r.dataZwrotu + "\n");
+		update(r);
+end
+// DO LICZENIA KOSZTOW BRAC ZAWSZE SAMOCHOD Z PREFEROWANEJ KATEGORII, NIE Z TEJ KTORA SIE DOSTALO
+rule "Rezerwacja- dolicz akcesoria"
+	when
+		r: Rezerwacja((czyFotelik == true || czyBagaznik == true) && preferowanaKategoria != null)
+	then
+		if(r.klient.czyJestCzlonkiemProgramu)
+		{
+			if(r.czyFotelik && r.czyBagaznik) //UWAGA min?
+			{
+				r.proponowanaCena += r.preferowanaKategoria.cenaZaFotelik;
+				
+			}
+		}
+		else
+		{
+			if(r.czyFotelik )
+			{
+				r.proponowanaCena += r.preferowanaKategoria.cenaZaFotelik;
+			}
+			if(r.czyBagaznik)
+			{
+				r.proponowanaCena += r.preferowanaKategoria.cenaZaBagaznik;
+			}
+				
+			
+		}
+		
+end
+
+
+rule "Rezerwacja- dolicz dni"
+	when
+		r: Rezerwacja(preferowanaKategoria != null, czyWykonalna == true)
+	then
+		long liczbaDni = r.liczbaDni();
+		if(liczbaDni <= 3){
+			r.proponowanaCena += r.preferowanaKategoria.cenaZaDzienDoMaks3Dni * liczbaDni;
+		}
+		else{
+			r.proponowanaCena += r.preferowanaKategoria.cenaZaDzienPowyzej3Dni * liczbaDni;
+		}
+		
+end
+rule "SUMA oddanie"
+	when
+		z: Zwrot()
+		r: Rezerwacja(this == z.rezerwacja, czyWykonalna == true)
+	then
+		if(z.karaDowod){
+			z.ostatecznaOplata += Kara.OPLATA_BRAK_D0WODU;
+		}
+		if(z.karaPolisa){
+			z.ostatecznaOplata += Kara.OPLATA_BRAK_POLISY;
+		}
+		z.ostatecznaOplata += z.ileZgubionychKolpakow * Kara.OPLATA_BRAK_KOLPAKA;
+		long liczbaDni = z.liczbaDni(); //UWAGA- LICZE LICZBE DNI, PRZEZ KTORE AUTO BYLO RZECZYWISCIE UZYTKOWANE
+										// gdyby polecenie zrozumiec inaczej to bylby r.liczbaDni()
+		if(liczbaDni <= 3){
+			z.ostatecznaOplata += z.liczbaKm * Kara.OPLATA_ZA_KM_1_3_DNI;
+		}
+		else{
+			z.ostatecznaOplata += z.liczbaKm * Kara.OPLATA_ZA_KM_WIECEJ_NIZ_3_DNI;
+		}
+		
+		// UWAGA- do liczenia kary biore cene za > 3 dni
+		z.ostatecznaOplata += (z.liczbaDni()- z.rezerwacja.liczbaDni())* Kara.MNOZNIK_ZA_DZIEN_OPOZNIENIA
+								* r.preferowanaKategoria.cenaZaDzienPowyzej3Dni;
+								
+		z.ostatecznaOplataPlusRezerwacja = z.ostatecznaOplata + r.proponowanaCena;
+			
+end
+
